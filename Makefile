@@ -1,10 +1,10 @@
 .PHONY: run build tidy
 
 run:
-	go run cmd/api/main.go
+	go run .
 
 build:
-	go build -o bin/mvno-api cmd/api/main.go
+	go build -o bin/mvno-api .
 
 tidy:
 	go mod tidy
