@@ -44,3 +44,18 @@ Thumbs.db
 # Go
 # =========================
 vendor/
+
+# =========================
+# Caches / dependencias locais
+# =========================
+.gocache/
+node_modules/
+frontend/node_modules/
+
+# =========================
+# Frontend gerado
+# =========================
+frontend/dist/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
