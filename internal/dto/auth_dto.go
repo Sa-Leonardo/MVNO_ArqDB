@@ -23,3 +23,10 @@ type CreateUserRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 	Role     string `json:"role"     binding:"required,oneof=admin operator viewer"`
 }
+
+type UpdateUserRequest struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	IsActive bool   `json:"is_active"`
+}

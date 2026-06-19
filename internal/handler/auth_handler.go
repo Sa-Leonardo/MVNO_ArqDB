@@ -59,3 +59,66 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 
 	response.Created(c, user)
 }
+
+func (h *AuthHandler) ListUsers(c *gin.Context) {
+	users, err := h.authService.ListUsers(c.Request.Context())
+	if err != nil {
+		response.InternalError(c)
+		return
+	}
+
+	response.OK(c, users)
+}
+
+func (h *AuthHandler) GetUser(c *gin.Context) {
+	user, err := h.authService.GetUserByID(
+		c.Request.Context(),
+		c.Param("id"),
+	)
+
+	if err != nil {
+		response.NotFound(c, "usuário")
+		return
+	}
+
+	response.OK(c, user)
+}
+
+func (h *AuthHandler) UpdateUser(c *gin.Context) {
+	var req dto.UpdateUserRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	user, err := h.authService.UpdateUser(
+		c.Request.Context(),
+		c.Param("id"),
+		req,
+	)
+
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.OK(c, user)
+}
+
+func (h *AuthHandler) DeactivateUser(c *gin.Context) {
+
+	err := h.authService.DeactivateUser(
+		c.Request.Context(),
+		c.Param("id"),
+	)
+
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.OK(c, gin.H{
+		"message": "usuário desativado",
+	})
+}

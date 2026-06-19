@@ -3,7 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/Sa-Leonardo/MVNO_ArqDB/internal/config"
 	"github.com/Sa-Leonardo/MVNO_ArqDB/internal/database"
 	"github.com/Sa-Leonardo/MVNO_ArqDB/internal/domain/repository"
@@ -12,13 +18,8 @@ import (
 	"github.com/Sa-Leonardo/MVNO_ArqDB/internal/middleware"
 	"github.com/Sa-Leonardo/MVNO_ArqDB/pkg/jwtutil"
 	"github.com/Sa-Leonardo/MVNO_ArqDB/pkg/logger"
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -31,18 +32,27 @@ func main() {
 	defer db.Disconnect()
 
 	collections, err := db.DB.ListCollectionNames(context.Background(), bson.M{})
-if err != nil {
-	log.Fatal(err)
-}
+	if err != nil {
+		log.Fatal(err)
+	}
 
-fmt.Println("BANCO EM USO:", db.DB.Name())
-fmt.Println("COLLECTIONS:", collections)
+	fmt.Println("BANCO EM USO:", db.DB.Name())
+	fmt.Println("COLLECTIONS:", collections)
 
 	// Dependências
 	jwt := jwtutil.New(cfg.JWTSecret, cfg.JWTExpiryHours)
 	userRepo := repository.NewUserRepository(db.DB)
+	if err := userRepo.EnsureIndexes(context.Background()); err != nil {
+		log.Fatalf("erro ao criar indices da collection users: %v", err)
+	}
+	mvnoRepo := repository.NewMVNORepository(db.DB)
+	if err := mvnoRepo.EnsureIndexes(context.Background()); err != nil {
+		log.Fatalf("erro ao criar indices das collections MVNO: %v", err)
+	}
 	authSvc := service.NewAuthService(userRepo, jwt)
+	mvnoSvc := service.NewMVNOService(mvnoRepo)
 	authHandler := handler.NewAuthHandler(authSvc)
+	mvnoHandler := handler.NewMVNOHandler(mvnoSvc)
 
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -89,6 +99,42 @@ fmt.Println("COLLECTIONS:", collections)
 		users.Use(middleware.RequireRole("admin"))
 		{
 			users.POST("", authHandler.CreateUser)
+
+			users.GET("", authHandler.ListUsers)
+
+			users.GET("/:id", authHandler.GetUser)
+
+			users.PUT("/:id", authHandler.UpdateUser)
+
+			users.PATCH("/:id/deactivate", authHandler.DeactivateUser)
+		}
+
+		clientes := api.Group("/clientes")
+		{
+			clientes.GET("", mvnoHandler.ListClientes)
+			clientes.POST("", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateCliente)
+			clientes.PUT("/:id", middleware.RequireRole("admin", "operator"), mvnoHandler.UpdateCliente)
+			clientes.DELETE("/:id", middleware.RequireRole("admin"), mvnoHandler.DeleteCliente)
+		}
+
+		planos := api.Group("/planos")
+		{
+			planos.GET("", mvnoHandler.ListPlanos)
+			planos.POST("", middleware.RequireRole("admin"), mvnoHandler.CreatePlano)
+		}
+
+		chips := api.Group("/chips")
+		{
+			chips.GET("", mvnoHandler.ListChips)
+			chips.POST("", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateChip)
+			chips.GET("/lotes", middleware.RequireRole("admin", "operator"), mvnoHandler.ListLotes)
+			chips.POST("/lotes", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateLoteChips)
+			chips.POST("/import-demo", middleware.RequireRole("admin"), mvnoHandler.ImportDemoChips)
+			chips.GET("/:iccid", mvnoHandler.GetChip)
+			chips.POST("/:iccid/ativar", middleware.RequireRole("admin", "operator"), mvnoHandler.ActivateChip)
+			chips.GET("/:iccid/recargas", mvnoHandler.ListRecargas)
+			chips.POST("/:iccid/recargas", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateRecarga)
+			chips.GET("/:iccid/assinaturas", mvnoHandler.ListAssinaturas)
 		}
 	}
 
