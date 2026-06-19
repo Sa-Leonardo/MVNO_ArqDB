@@ -121,6 +121,7 @@ func main() {
 		{
 			planos.GET("", mvnoHandler.ListPlanos)
 			planos.POST("", middleware.RequireRole("admin"), mvnoHandler.CreatePlano)
+			planos.PUT("/:id", middleware.RequireRole("admin"), mvnoHandler.UpdatePlano)
 		}
 
 		chips := api.Group("/chips")

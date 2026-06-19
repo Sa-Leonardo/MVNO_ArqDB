@@ -19,6 +19,8 @@ type AuthService interface {
 	GetUserByID(ctx context.Context, id string) (*model.User, error)
 	UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (*model.User, error)
 	DeactivateUser(ctx context.Context, id string) error
+	ReactivateUser(ctx context.Context, id string) error
+	ChangeUserPassword(ctx context.Context, id string, newPassword string) error
 	ListUsers(ctx context.Context) ([]model.User, error)
 }
 
@@ -167,4 +169,41 @@ func (s *authService) DeactivateUser(
 	}
 
 	return s.userRepo.Deactivate(ctx, oid)
+}
+
+func (s *authService) ReactivateUser(
+	ctx context.Context,
+	id string,
+) error {
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("id inválido")
+	}
+
+	return s.userRepo.Reactivate(ctx, oid)
+}
+
+func (s *authService) ChangeUserPassword(
+	ctx context.Context,
+	id string,
+	newPassword string,
+) error {
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("id inválido")
+	}
+
+	_, err = s.userRepo.FindByID(ctx, oid)
+	if err != nil {
+		return errors.New("usuário não encontrado")
+	}
+
+	hash, err := crypto.HashPassword(newPassword)
+	if err != nil {
+		return errors.New("erro ao processar senha")
+	}
+
+	return s.userRepo.UpdatePassword(ctx, oid, hash)
 }

@@ -195,6 +195,16 @@ export interface CreatePlanoRequest {
   beneficios: PlanoBeneficios;
 }
 
+export interface UpdatePlanoRequest {
+  nome: string;
+  descricao: string;
+  valor: number;
+  moeda: string;
+  ciclo_dias: number;
+  beneficios: PlanoBeneficios;
+  ativo: boolean;
+}
+
 export interface CreateChipRequest {
   iccid: string;
   msisdn?: string;

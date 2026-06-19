@@ -12,6 +12,7 @@ import type {
   Plano,
   Recarga,
   UpdateClienteRequest,
+  UpdatePlanoRequest,
   User,
   UserRole
 } from "@/types/api";
@@ -51,6 +52,10 @@ export const mvnoService = {
 
   createPlano(payload: CreatePlanoRequest): Promise<Plano> {
     return unwrap(api.post("/api/v1/planos", payload));
+  },
+
+  updatePlano(id: string, payload: UpdatePlanoRequest): Promise<Plano> {
+    return unwrap(api.put(`/api/v1/planos/${id}`, payload));
   },
 
   // =========================

@@ -122,3 +122,40 @@ func (h *AuthHandler) DeactivateUser(c *gin.Context) {
 		"message": "usuário desativado",
 	})
 }
+
+func (h *AuthHandler) ReactivateUser(c *gin.Context) {
+	err := h.authService.ReactivateUser(
+		c.Request.Context(),
+		c.Param("id"),
+	)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.OK(c, gin.H{
+		"message": "usuário ativado",
+	})
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	var req dto.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	err := h.authService.ChangeUserPassword(
+		c.Request.Context(),
+		c.Param("id"),
+		req.Password,
+	)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.OK(c, gin.H{
+		"message": "senha alterada com sucesso",
+	})
+}

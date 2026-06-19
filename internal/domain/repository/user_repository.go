@@ -23,6 +23,8 @@ type UserRepository interface {
 	Deactivate(ctx context.Context, id primitive.ObjectID) error
 
 	Reactivate(ctx context.Context, id primitive.ObjectID) error
+
+	UpdatePassword(ctx context.Context, id primitive.ObjectID, passwordHash string) error
 }
 
 type userRepository struct {
@@ -237,6 +239,26 @@ func (r *userRepository) Reactivate(
 			"$set": bson.M{
 				"status.is_active": true,
 				"audit.updated_at": time.Now(),
+			},
+		},
+	)
+
+	return err
+}
+
+func (r *userRepository) UpdatePassword(
+	ctx context.Context,
+	id primitive.ObjectID,
+	passwordHash string,
+) error {
+
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{
+			"$set": bson.M{
+				"credentials.password_hash": passwordHash,
+				"audit.updated_at":          time.Now(),
 			},
 		},
 	)

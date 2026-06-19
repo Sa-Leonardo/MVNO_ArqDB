@@ -30,3 +30,7 @@ type UpdateUserRequest struct {
 	Role     string `json:"role"`
 	IsActive bool   `json:"is_active"`
 }
+
+type ChangePasswordRequest struct {
+	Password string `json:"password" binding:"required,min=6"`
+}
