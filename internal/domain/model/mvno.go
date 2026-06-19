@@ -41,6 +41,7 @@ type AuditActor struct {
 type AuditInfo struct {
 	CreatedAt time.Time `bson:"created_at" json:"created_at"`
 	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
+	//DeleteAt time.Time `bson:"delete_at" json: "delete_at` //Adicionado a struct a opção de deleção
 }
 
 type ClienteContato struct {
@@ -112,6 +113,7 @@ type Chip struct {
 	ICCID           string              `bson:"iccid"                         json:"iccid"`
 	MSISDN          string              `bson:"msisdn,omitempty"              json:"msisdn,omitempty"`
 	Status          ChipStatus          `bson:"status"                        json:"status"`
+	LoteID          *primitive.ObjectID `bson:"lote_id,omitempty" json:"lote_id,omitempty"` //importação em lote
 	ClienteID       *primitive.ObjectID `bson:"cliente_id,omitempty"          json:"cliente_id,omitempty"`
 	PlanoID         *primitive.ObjectID `bson:"plano_id,omitempty"            json:"plano_id,omitempty"`
 	Rede            ChipRede            `bson:"rede"                          json:"rede"`
@@ -152,3 +154,23 @@ type AuditLog struct {
 	OccurredAt time.Time          `bson:"occurred_at"   json:"occurred_at"`
 	Snapshot   map[string]any     `bson:"snapshot"      json:"snapshot"`
 }
+
+// Adição de IICID em LOTE
+type LoteChip struct {
+	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Nome       string             `bson:"nome" json:"nome"`
+	Descricao  string             `bson:"descricao" json:"descricao"`
+	Quantidade int                `bson:"quantidade" json:"quantidade"`
+	CriadoEm   time.Time          `bson:"criado_em" json:"criado_em"`
+	Status     LoteStatus         `bson:"status" json:"status"`
+	Audit      AuditInfo          `bson:"audit" json:"audit"`
+}
+
+// struct do status de importação em lote
+type LoteStatus string
+
+const (
+	LoteStatusImported LoteStatus = "imported"
+	LoteStatusActive   LoteStatus = "active"
+	LoteStatusClosed   LoteStatus = "closed"
+)

@@ -14,6 +14,15 @@ type ClienteEnderecoRequest struct {
 }
 
 type CreateClienteRequest struct {
+	Nome       string                 `json:"nome"        binding:"required,min=2"`
+	Documento  string                 `json:"documento"   binding:"required,min=5"`
+	Contato    ClienteContatoRequest  `json:"contato"`
+	Endereco   ClienteEnderecoRequest `json:"endereco"`
+	Tags       []string               `json:"tags"`
+	ChipICCIDs []string               `json:"chip_iccids" binding:"required,min=1,dive,required,min=10"`
+}
+
+type UpdateClienteRequest struct {
 	Nome      string                 `json:"nome"      binding:"required,min=2"`
 	Documento string                 `json:"documento" binding:"required,min=5"`
 	Contato   ClienteContatoRequest  `json:"contato"`

@@ -16,17 +16,25 @@ type MVNORepository interface {
 	CreateCliente(ctx context.Context, cliente *model.Cliente) error
 	FindClienteByID(ctx context.Context, id primitive.ObjectID) (*model.Cliente, error)
 	ListClientes(ctx context.Context) ([]model.Cliente, error)
+	CountChipsByClienteID(ctx context.Context, id primitive.ObjectID) (int64, error)
+	DeleteCliente(ctx context.Context, id primitive.ObjectID) error
+	UpdateCliente(ctx context.Context, cliente *model.Cliente) error
 	CreatePlano(ctx context.Context, plano *model.Plano) error
 	FindPlanoByID(ctx context.Context, id primitive.ObjectID) (*model.Plano, error)
 	ListPlanos(ctx context.Context) ([]model.Plano, error)
 	CreateChip(ctx context.Context, chip *model.Chip) error
 	FindChipByICCID(ctx context.Context, iccid string) (*model.Chip, error)
+	FindChipsByICCIDs(ctx context.Context, iccids []string) ([]model.Chip, error)
+	AssignChipsToCliente(ctx context.Context, clienteID primitive.ObjectID, iccids []string) error
 	ListChips(ctx context.Context, status string) ([]model.Chip, error)
 	ActivateChip(ctx context.Context, chip *model.Chip, assinatura *model.Assinatura) error
 	CreateRecarga(ctx context.Context, recarga *model.Recarga) error
 	ListRecargasByICCID(ctx context.Context, iccid string) ([]model.Recarga, error)
 	ListAssinaturasByICCID(ctx context.Context, iccid string) ([]model.Assinatura, error)
 	WriteAuditLog(ctx context.Context, log *model.AuditLog) error
+	CreateLote(ctx context.Context, lote *model.LoteChip) error
+	ListLotes(ctx context.Context) ([]model.LoteChip, error)
+	CreateManyChips(ctx context.Context, chips []model.Chip) error
 }
 
 type mvnoRepository struct {
@@ -36,6 +44,7 @@ type mvnoRepository struct {
 	recargas    *mongo.Collection
 	assinaturas *mongo.Collection
 	auditLogs   *mongo.Collection
+	lotes       *mongo.Collection
 }
 
 func NewMVNORepository(db *mongo.Database) MVNORepository {
@@ -46,6 +55,7 @@ func NewMVNORepository(db *mongo.Database) MVNORepository {
 		recargas:    db.Collection("recargas"),
 		assinaturas: db.Collection("assinaturas"),
 		auditLogs:   db.Collection("audit_logs"),
+		lotes:       db.Collection("lotes"),
 	}
 }
 
@@ -117,6 +127,40 @@ func (r *mvnoRepository) ListClientes(ctx context.Context) ([]model.Cliente, err
 	return clientes, err
 }
 
+func (r *mvnoRepository) CountChipsByClienteID(ctx context.Context, id primitive.ObjectID) (int64, error) {
+	return r.chips.CountDocuments(ctx, bson.M{"cliente_id": id})
+}
+
+func (r *mvnoRepository) DeleteCliente(ctx context.Context, id primitive.ObjectID) error {
+	result, err := r.clientes.DeleteOne(ctx, bson.M{"_id": id})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
+}
+
+func (r *mvnoRepository) UpdateCliente(ctx context.Context, cliente *model.Cliente) error {
+	cliente.Audit.UpdatedAt = time.Now()
+	result, err := r.clientes.UpdateOne(ctx, bson.M{"_id": cliente.ID}, bson.M{"$set": bson.M{
+		"nome":             cliente.Nome,
+		"documento":        cliente.Documento,
+		"contato":          cliente.Contato,
+		"endereco":         cliente.Endereco,
+		"tags":             cliente.Tags,
+		"audit.updated_at": cliente.Audit.UpdatedAt,
+	}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
+}
+
 func (r *mvnoRepository) CreatePlano(ctx context.Context, plano *model.Plano) error {
 	now := time.Now()
 	plano.ID = primitive.NewObjectID()
@@ -157,6 +201,38 @@ func (r *mvnoRepository) FindChipByICCID(ctx context.Context, iccid string) (*mo
 	var chip model.Chip
 	err := r.chips.FindOne(ctx, bson.M{"iccid": iccid}).Decode(&chip)
 	return &chip, err
+}
+
+func (r *mvnoRepository) FindChipsByICCIDs(ctx context.Context, iccids []string) ([]model.Chip, error) {
+	cursor, err := r.chips.Find(ctx, bson.M{"iccid": bson.M{"$in": iccids}})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var chips []model.Chip
+	err = cursor.All(ctx, &chips)
+	return chips, err
+}
+
+func (r *mvnoRepository) AssignChipsToCliente(ctx context.Context, clienteID primitive.ObjectID, iccids []string) error {
+	now := time.Now()
+	result, err := r.chips.UpdateMany(ctx, bson.M{
+		"iccid":  bson.M{"$in": iccids},
+		"status": model.ChipStatusAvailable,
+		"$or":    bson.A{bson.M{"cliente_id": bson.M{"$exists": false}}, bson.M{"cliente_id": nil}},
+	}, bson.M{"$set": bson.M{
+		"cliente_id":       clienteID,
+		"status":           model.ChipStatusReserved,
+		"audit.updated_at": now,
+	}})
+	if err != nil {
+		return err
+	}
+	if result.ModifiedCount != int64(len(iccids)) {
+		return mongo.ErrNoDocuments
+	}
+	return nil
 }
 
 func (r *mvnoRepository) ListChips(ctx context.Context, status string) ([]model.Chip, error) {
@@ -244,5 +320,76 @@ func (r *mvnoRepository) WriteAuditLog(ctx context.Context, log *model.AuditLog)
 	log.ID = primitive.NewObjectID()
 	log.OccurredAt = time.Now()
 	_, err := r.auditLogs.InsertOne(ctx, log)
+	return err
+}
+
+func (r *mvnoRepository) CreateLote(
+	ctx context.Context,
+	lote *model.LoteChip,
+) error {
+
+	now := time.Now()
+	if lote.ID.IsZero() {
+		lote.ID = primitive.NewObjectID()
+	}
+	lote.CriadoEm = now
+	lote.Audit = model.AuditInfo{
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	_, err := r.lotes.InsertOne(ctx, lote)
+
+	return err
+}
+
+func (r *mvnoRepository) ListLotes(
+	ctx context.Context,
+) ([]model.LoteChip, error) {
+
+	cursor, err := r.lotes.Find(
+		ctx,
+		bson.M{},
+		options.Find().SetSort(
+			bson.D{{Key: "criado_em", Value: -1}},
+		),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(ctx)
+
+	var lotes []model.LoteChip
+
+	err = cursor.All(ctx, &lotes)
+
+	return lotes, err
+}
+
+func (r *mvnoRepository) CreateManyChips(
+	ctx context.Context,
+	chips []model.Chip,
+) error {
+
+	now := time.Now()
+
+	docs := make([]interface{}, 0, len(chips))
+
+	for i := range chips {
+
+		chips[i].ID = primitive.NewObjectID()
+		chips[i].Status = model.ChipStatusAvailable
+		chips[i].Audit = model.AuditInfo{
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		docs = append(docs, chips[i])
+	}
+
+	_, err := r.chips.InsertMany(ctx, docs)
+
 	return err
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 type MVNOService interface {
 	CreateCliente(ctx context.Context, req dto.CreateClienteRequest, actor model.AuditActor) (*model.Cliente, error)
 	ListClientes(ctx context.Context) ([]model.Cliente, error)
+	UpdateCliente(ctx context.Context, id string, req dto.UpdateClienteRequest, actor model.AuditActor) (*model.Cliente, error)
+	DeleteCliente(ctx context.Context, id string, actor model.AuditActor) error
 	CreatePlano(ctx context.Context, req dto.CreatePlanoRequest, actor model.AuditActor) (*model.Plano, error)
 	ListPlanos(ctx context.Context) ([]model.Plano, error)
 	CreateChip(ctx context.Context, req dto.CreateChipRequest, actor model.AuditActor) (*model.Chip, error)
@@ -25,6 +28,9 @@ type MVNOService interface {
 	CreateRecarga(ctx context.Context, iccid string, req dto.CreateRecargaRequest, actor model.AuditActor) (*model.Recarga, error)
 	ListRecargas(ctx context.Context, iccid string) ([]model.Recarga, error)
 	ListAssinaturas(ctx context.Context, iccid string) ([]model.Assinatura, error)
+	ImportDemoChips(ctx context.Context, actor model.AuditActor) error
+	CreateLoteChips(ctx context.Context, req dto.CreateLoteRequest, actor model.AuditActor) (*model.LoteChip, error)
+	ListLotes(ctx context.Context) ([]model.LoteChip, error)
 }
 
 type mvnoService struct {
@@ -35,7 +41,118 @@ func NewMVNOService(repo repository.MVNORepository) MVNOService {
 	return &mvnoService{repo: repo}
 }
 
+// Implementação do lote de iccids
+func (s *mvnoService) ImportDemoChips(
+	ctx context.Context,
+	actor model.AuditActor,
+) error {
+
+	for i := 1; i <= 20; i++ {
+
+		chip := &model.Chip{
+			ICCID: fmt.Sprintf(
+				"895500000000000%03d",
+				i,
+			),
+
+			MSISDN: fmt.Sprintf(
+				"559399100%04d",
+				i,
+			),
+
+			Rede: model.ChipRede{
+				Operadora: "TIM",
+				IMSI: fmt.Sprintf(
+					"724040000000000%03d",
+					i,
+				),
+			},
+
+			Tags: []string{
+				"demo",
+				"lote-001",
+			},
+		}
+
+		if err := s.repo.CreateChip(ctx, chip); err != nil {
+			return err
+		}
+	}
+
+	s.audit(
+		ctx,
+		"lote",
+		"demo-001",
+		"chips.imported",
+		actor,
+		map[string]any{
+			"quantidade": 20,
+		},
+	)
+
+	return nil
+}
+
+func (s *mvnoService) CreateLoteChips(ctx context.Context, req dto.CreateLoteRequest, actor model.AuditActor) (*model.LoteChip, error) {
+	iccidPrefix := onlyDigits(req.ICCIDPrefix)
+	if iccidPrefix == "" {
+		return nil, errors.New("prefixo ICCID invalido")
+	}
+	if req.Quantidade <= 0 {
+		return nil, errors.New("quantidade deve ser maior que zero")
+	}
+
+	lote := &model.LoteChip{
+		ID:         primitive.NewObjectID(),
+		Nome:       strings.TrimSpace(req.Nome),
+		Descricao:  strings.TrimSpace(req.Descricao),
+		Quantidade: req.Quantidade,
+		Status:     model.LoteStatusImported,
+	}
+
+	chips := make([]model.Chip, 0, req.Quantidade)
+	for i := 1; i <= req.Quantidade; i++ {
+		iccid := fmt.Sprintf("%s%06d", iccidPrefix, i)
+		chip := model.Chip{
+			ICCID:  iccid,
+			LoteID: &lote.ID,
+			Rede: model.ChipRede{
+				Operadora: strings.TrimSpace(req.Operadora),
+				IMSI:      sequenceValue(req.IMSIPrefix, i),
+			},
+			MSISDN: sequenceValue(req.MSISDNPrefix, i),
+			Tags:   append([]string{"lote", lote.Nome}, req.Tags...),
+		}
+		chips = append(chips, chip)
+	}
+
+	if err := s.repo.CreateLote(ctx, lote); err != nil {
+		return nil, err
+	}
+	if err := s.repo.CreateManyChips(ctx, chips); err != nil {
+		return nil, err
+	}
+
+	s.audit(ctx, "lote", lote.ID.Hex(), "chips.batch_imported", actor, map[string]any{
+		"lote":       lote,
+		"quantidade": req.Quantidade,
+	})
+	return lote, nil
+}
+
+func (s *mvnoService) ListLotes(ctx context.Context) ([]model.LoteChip, error) {
+	return s.repo.ListLotes(ctx)
+}
+
 func (s *mvnoService) CreateCliente(ctx context.Context, req dto.CreateClienteRequest, actor model.AuditActor) (*model.Cliente, error) {
+	chipICCIDs := uniqueDigits(req.ChipICCIDs)
+	if len(chipICCIDs) == 0 {
+		return nil, errors.New("cliente deve ter pelo menos um chip")
+	}
+	if err := s.validateAvailableChips(ctx, chipICCIDs); err != nil {
+		return nil, err
+	}
+
 	cliente := &model.Cliente{
 		Nome:      strings.TrimSpace(req.Nome),
 		Documento: onlyDigits(req.Documento),
@@ -56,12 +173,94 @@ func (s *mvnoService) CreateCliente(ctx context.Context, req dto.CreateClienteRe
 	if err := s.repo.CreateCliente(ctx, cliente); err != nil {
 		return nil, err
 	}
-	s.audit(ctx, "cliente", cliente.ID.Hex(), "cliente.created", actor, cliente)
+
+	if err := s.repo.AssignChipsToCliente(ctx, cliente.ID, chipICCIDs); err != nil {
+		_ = s.repo.DeleteCliente(ctx, cliente.ID)
+		return nil, errors.New("erro ao vincular chips ao cliente")
+	}
+
+	s.audit(ctx, "cliente", cliente.ID.Hex(), "cliente.created", actor, map[string]any{
+		"cliente":     cliente,
+		"chip_iccids": chipICCIDs,
+	})
 	return cliente, nil
 }
 
 func (s *mvnoService) ListClientes(ctx context.Context) ([]model.Cliente, error) {
 	return s.repo.ListClientes(ctx)
+}
+
+func (s *mvnoService) UpdateCliente(ctx context.Context, id string, req dto.UpdateClienteRequest, actor model.AuditActor) (*model.Cliente, error) {
+	clienteID, err := primitive.ObjectIDFromHex(strings.TrimSpace(id))
+	if err != nil {
+		return nil, errors.New("cliente_id invalido")
+	}
+
+	cliente, err := s.repo.FindClienteByID(ctx, clienteID)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.New("cliente nao encontrado")
+		}
+		return nil, err
+	}
+
+	cliente.Nome = strings.TrimSpace(req.Nome)
+	cliente.Documento = onlyDigits(req.Documento)
+	cliente.Contato = model.ClienteContato{
+		Email:    strings.TrimSpace(req.Contato.Email),
+		Telefone: strings.TrimSpace(req.Contato.Telefone),
+	}
+	cliente.Endereco = model.ClienteEndereco{
+		Logradouro: strings.TrimSpace(req.Endereco.Logradouro),
+		Numero:     strings.TrimSpace(req.Endereco.Numero),
+		Cidade:     strings.TrimSpace(req.Endereco.Cidade),
+		UF:         strings.ToUpper(strings.TrimSpace(req.Endereco.UF)),
+		CEP:        onlyDigits(req.Endereco.CEP),
+	}
+	cliente.Tags = req.Tags
+
+	if err := s.repo.UpdateCliente(ctx, cliente); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.New("cliente nao encontrado")
+		}
+		return nil, err
+	}
+
+	s.audit(ctx, "cliente", cliente.ID.Hex(), "cliente.updated", actor, cliente)
+	return cliente, nil
+}
+
+func (s *mvnoService) DeleteCliente(ctx context.Context, id string, actor model.AuditActor) error {
+	clienteID, err := primitive.ObjectIDFromHex(strings.TrimSpace(id))
+	if err != nil {
+		return errors.New("cliente_id invalido")
+	}
+
+	cliente, err := s.repo.FindClienteByID(ctx, clienteID)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return errors.New("cliente nao encontrado")
+		}
+		return err
+	}
+
+	totalChips, err := s.repo.CountChipsByClienteID(ctx, clienteID)
+	if err != nil {
+		return err
+	}
+	if totalChips > 0 {
+		return errors.New("cliente possui chips vinculados")
+	}
+
+	if err := s.repo.DeleteCliente(ctx, clienteID); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return errors.New("cliente nao encontrado")
+		}
+		return err
+	}
+
+	s.audit(ctx, "cliente", cliente.ID.Hex(), "cliente.deleted", actor, cliente)
+	return nil
 }
 
 func (s *mvnoService) CreatePlano(ctx context.Context, req dto.CreatePlanoRequest, actor model.AuditActor) (*model.Plano, error) {
@@ -129,8 +328,8 @@ func (s *mvnoService) ActivateChip(ctx context.Context, iccid string, req dto.At
 		}
 		return nil, err
 	}
-	if chip.Status == model.ChipStatusCanceled {
-		return nil, errors.New("chip cancelado nao pode ser ativado")
+	if chip.Status != model.ChipStatusAvailable && chip.Status != model.ChipStatusReserved {
+		return nil, errors.New("somente chips disponiveis ou reservados podem ser ativados")
 	}
 
 	clienteID, err := primitive.ObjectIDFromHex(req.ClienteID)
@@ -155,6 +354,9 @@ func (s *mvnoService) ActivateChip(ctx context.Context, iccid string, req dto.At
 			return nil, errors.New("plano nao encontrado")
 		}
 		return nil, err
+	}
+	if chip.ClienteID != nil && *chip.ClienteID != cliente.ID {
+		return nil, errors.New("chip reservado para outro cliente")
 	}
 
 	now := time.Now()
@@ -244,4 +446,44 @@ func onlyDigits(value string) string {
 		}
 	}
 	return builder.String()
+}
+
+func uniqueDigits(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		digits := onlyDigits(value)
+		if digits == "" || seen[digits] {
+			continue
+		}
+		seen[digits] = true
+		result = append(result, digits)
+	}
+	return result
+}
+
+func sequenceValue(prefix string, index int) string {
+	digits := onlyDigits(prefix)
+	if digits == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%06d", digits, index)
+}
+
+func (s *mvnoService) validateAvailableChips(ctx context.Context, iccids []string) error {
+	chips, err := s.repo.FindChipsByICCIDs(ctx, iccids)
+	if err != nil {
+		return err
+	}
+	if len(chips) != len(iccids) {
+		return errors.New("um ou mais chips nao foram encontrados")
+	}
+
+	for _, chip := range chips {
+		if chip.Status != model.ChipStatusAvailable || chip.ClienteID != nil {
+			return errors.New("um ou mais chips nao estao disponiveis")
+		}
+	}
+
+	return nil
 }

@@ -175,6 +175,15 @@ export interface CreateClienteRequest {
   contato: ClienteContato;
   endereco: ClienteEndereco;
   tags: string[];
+  chip_iccids: string[];
+}
+
+export interface UpdateClienteRequest {
+  nome: string;
+  documento: string;
+  contato: ClienteContato;
+  endereco: ClienteEndereco;
+  tags: string[];
 }
 
 export interface CreatePlanoRequest {
@@ -209,5 +218,11 @@ export interface CreateUserRequest {
   name: string;
   email: string;
   password: string;
+  role: UserRole;
+}
+
+export interface UpdateUserRequest {
+  name: string;
+  email: string;
   role: UserRole;
 }

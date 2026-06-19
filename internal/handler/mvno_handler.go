@@ -41,6 +41,29 @@ func (h *MVNOHandler) ListClientes(c *gin.Context) {
 	response.OK(c, clientes)
 }
 
+func (h *MVNOHandler) UpdateCliente(c *gin.Context) {
+	var req dto.UpdateClienteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	cliente, err := h.mvnoService.UpdateCliente(c.Request.Context(), c.Param("id"), req, actorFromContext(c))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.OK(c, cliente)
+}
+
+func (h *MVNOHandler) DeleteCliente(c *gin.Context) {
+	if err := h.mvnoService.DeleteCliente(c.Request.Context(), c.Param("id"), actorFromContext(c)); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"message": "cliente excluido"})
+}
+
 func (h *MVNOHandler) CreatePlano(c *gin.Context) {
 	var req dto.CreatePlanoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -87,6 +110,30 @@ func (h *MVNOHandler) ListChips(c *gin.Context) {
 		return
 	}
 	response.OK(c, chips)
+}
+
+func (h *MVNOHandler) CreateLoteChips(c *gin.Context) {
+	var req dto.CreateLoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	lote, err := h.mvnoService.CreateLoteChips(c.Request.Context(), req, actorFromContext(c))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Created(c, lote)
+}
+
+func (h *MVNOHandler) ListLotes(c *gin.Context) {
+	lotes, err := h.mvnoService.ListLotes(c.Request.Context())
+	if err != nil {
+		response.InternalError(c)
+		return
+	}
+	response.OK(c, lotes)
 }
 
 func (h *MVNOHandler) GetChip(c *gin.Context) {
@@ -163,4 +210,21 @@ func valueAsString(value any) string {
 		return text
 	}
 	return ""
+}
+
+func (h *MVNOHandler) ImportDemoChips(c *gin.Context) {
+
+	err := h.mvnoService.ImportDemoChips(
+		c.Request.Context(),
+		actorFromContext(c),
+	)
+
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Created(c, gin.H{
+		"message": "20 chips importados com sucesso",
+	})
 }

@@ -99,12 +99,22 @@ func main() {
 		users.Use(middleware.RequireRole("admin"))
 		{
 			users.POST("", authHandler.CreateUser)
+
+			users.GET("", authHandler.ListUsers)
+
+			users.GET("/:id", authHandler.GetUser)
+
+			users.PUT("/:id", authHandler.UpdateUser)
+
+			users.PATCH("/:id/deactivate", authHandler.DeactivateUser)
 		}
 
 		clientes := api.Group("/clientes")
 		{
 			clientes.GET("", mvnoHandler.ListClientes)
 			clientes.POST("", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateCliente)
+			clientes.PUT("/:id", middleware.RequireRole("admin", "operator"), mvnoHandler.UpdateCliente)
+			clientes.DELETE("/:id", middleware.RequireRole("admin"), mvnoHandler.DeleteCliente)
 		}
 
 		planos := api.Group("/planos")
@@ -116,8 +126,11 @@ func main() {
 		chips := api.Group("/chips")
 		{
 			chips.GET("", mvnoHandler.ListChips)
-			chips.GET("/:iccid", mvnoHandler.GetChip)
 			chips.POST("", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateChip)
+			chips.GET("/lotes", middleware.RequireRole("admin", "operator"), mvnoHandler.ListLotes)
+			chips.POST("/lotes", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateLoteChips)
+			chips.POST("/import-demo", middleware.RequireRole("admin"), mvnoHandler.ImportDemoChips)
+			chips.GET("/:iccid", mvnoHandler.GetChip)
 			chips.POST("/:iccid/ativar", middleware.RequireRole("admin", "operator"), mvnoHandler.ActivateChip)
 			chips.GET("/:iccid/recargas", mvnoHandler.ListRecargas)
 			chips.POST("/:iccid/recargas", middleware.RequireRole("admin", "operator"), mvnoHandler.CreateRecarga)

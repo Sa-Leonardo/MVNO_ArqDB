@@ -17,6 +17,9 @@ type AuthService interface {
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error)
 	CreateUser(ctx context.Context, req dto.CreateUserRequest) (*model.User, error)
 	GetUserByID(ctx context.Context, id string) (*model.User, error)
+	UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (*model.User, error)
+	DeactivateUser(ctx context.Context, id string) error
+	ListUsers(ctx context.Context) ([]model.User, error)
 }
 
 type authService struct {
@@ -115,4 +118,53 @@ func defaultPermissions(role model.UserRole) []string {
 	default:
 		return []string{"inventory:read"}
 	}
+}
+
+// Listar usuários
+func (s *authService) ListUsers(
+	ctx context.Context,
+) ([]model.User, error) {
+
+	return s.userRepo.List(ctx)
+}
+
+func (s *authService) UpdateUser(
+	ctx context.Context,
+	id string,
+	req dto.UpdateUserRequest,
+) (*model.User, error) {
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, errors.New("id inválido")
+	}
+
+	user, err := s.userRepo.FindByID(ctx, oid)
+	if err != nil {
+		return nil, errors.New("usuário não encontrado")
+	}
+
+	user.Identity.Name = req.Name
+	user.Identity.Email = req.Email
+	user.Access.Role = model.UserRole(req.Role)
+	user.Access.Permissions = defaultPermissions(user.Access.Role)
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *authService) DeactivateUser(
+	ctx context.Context,
+	id string,
+) error {
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return errors.New("id inválido")
+	}
+
+	return s.userRepo.Deactivate(ctx, oid)
 }
