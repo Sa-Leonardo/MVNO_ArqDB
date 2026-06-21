@@ -21,6 +21,7 @@ type MVNOService interface {
 	DeleteCliente(ctx context.Context, id string, actor model.AuditActor) error
 	CreatePlano(ctx context.Context, req dto.CreatePlanoRequest, actor model.AuditActor) (*model.Plano, error)
 	ListPlanos(ctx context.Context) ([]model.Plano, error)
+	UpdatePlano(ctx context.Context, id string, req dto.UpdatePlanoRequest, actor model.AuditActor) (*model.Plano, error)
 	CreateChip(ctx context.Context, req dto.CreateChipRequest, actor model.AuditActor) (*model.Chip, error)
 	GetChip(ctx context.Context, iccid string) (*model.Chip, error)
 	ListChips(ctx context.Context, status string) ([]model.Chip, error)
@@ -111,8 +112,10 @@ func (s *mvnoService) CreateLoteChips(ctx context.Context, req dto.CreateLoteReq
 	}
 
 	chips := make([]model.Chip, 0, req.Quantidade)
+	iccids := make([]string, 0, req.Quantidade)
 	for i := 1; i <= req.Quantidade; i++ {
 		iccid := fmt.Sprintf("%s%06d", iccidPrefix, i)
+		iccids = append(iccids, iccid)
 		chip := model.Chip{
 			ICCID:  iccid,
 			LoteID: &lote.ID,
@@ -124,6 +127,13 @@ func (s *mvnoService) CreateLoteChips(ctx context.Context, req dto.CreateLoteReq
 			Tags:   append([]string{"lote", lote.Nome}, req.Tags...),
 		}
 		chips = append(chips, chip)
+	}
+	existingChips, err := s.repo.FindChipsByICCIDs(ctx, iccids)
+	if err != nil {
+		return nil, err
+	}
+	if len(existingChips) > 0 {
+		return nil, fmt.Errorf("o ICCID %s ja esta cadastrado", existingChips[0].ICCID)
 	}
 
 	if err := s.repo.CreateLote(ctx, lote); err != nil {
@@ -294,6 +304,48 @@ func (s *mvnoService) ListPlanos(ctx context.Context) ([]model.Plano, error) {
 	return s.repo.ListPlanos(ctx)
 }
 
+func (s *mvnoService) UpdatePlano(ctx context.Context, id string, req dto.UpdatePlanoRequest, actor model.AuditActor) (*model.Plano, error) {
+	planoID, err := primitive.ObjectIDFromHex(strings.TrimSpace(id))
+	if err != nil {
+		return nil, errors.New("plano_id invalido")
+	}
+
+	plano, err := s.repo.FindPlanoByID(ctx, planoID)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.New("plano nao encontrado")
+		}
+		return nil, err
+	}
+
+	plano.Nome = strings.TrimSpace(req.Nome)
+	plano.Descricao = strings.TrimSpace(req.Descricao)
+	plano.Valor = req.Valor
+	if strings.TrimSpace(req.Moeda) != "" {
+		plano.Moeda = strings.ToUpper(strings.TrimSpace(req.Moeda))
+	}
+	plano.CicloDias = req.CicloDias
+	plano.Beneficios = model.PlanoBeneficios{
+		DadosMB: req.Beneficios.DadosMB,
+		VozMin:  req.Beneficios.VozMin,
+		SMS:     req.Beneficios.SMS,
+		Apps:    req.Beneficios.Apps,
+	}
+	if req.Ativo != nil {
+		plano.Ativo = *req.Ativo
+	}
+
+	if err := s.repo.UpdatePlano(ctx, plano); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, errors.New("plano nao encontrado")
+		}
+		return nil, err
+	}
+
+	s.audit(ctx, "plano", plano.ID.Hex(), "plano.updated", actor, plano)
+	return plano, nil
+}
+
 func (s *mvnoService) CreateChip(ctx context.Context, req dto.CreateChipRequest, actor model.AuditActor) (*model.Chip, error) {
 	chip := &model.Chip{
 		ICCID:  onlyDigits(req.ICCID),
@@ -354,6 +406,9 @@ func (s *mvnoService) ActivateChip(ctx context.Context, iccid string, req dto.At
 			return nil, errors.New("plano nao encontrado")
 		}
 		return nil, err
+	}
+	if !plano.Ativo {
+		return nil, errors.New("plano selecionado esta inativo")
 	}
 	if chip.ClienteID != nil && *chip.ClienteID != cliente.ID {
 		return nil, errors.New("chip reservado para outro cliente")

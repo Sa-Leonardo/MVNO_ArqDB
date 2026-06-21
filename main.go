@@ -107,6 +107,10 @@ func main() {
 			users.PUT("/:id", authHandler.UpdateUser)
 
 			users.PATCH("/:id/deactivate", authHandler.DeactivateUser)
+
+			users.PATCH("/:id/reactivate", authHandler.ReactivateUser)
+
+			users.PATCH("/:id/password", authHandler.ChangePassword)
 		}
 
 		clientes := api.Group("/clientes")
@@ -121,6 +125,7 @@ func main() {
 		{
 			planos.GET("", mvnoHandler.ListPlanos)
 			planos.POST("", middleware.RequireRole("admin"), mvnoHandler.CreatePlano)
+			planos.PUT("/:id", middleware.RequireRole("admin"), mvnoHandler.UpdatePlano)
 		}
 
 		chips := api.Group("/chips")

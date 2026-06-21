@@ -46,6 +46,16 @@ type CreatePlanoRequest struct {
 	Beneficios PlanoBeneficiosRequest `json:"beneficios"`
 }
 
+type UpdatePlanoRequest struct {
+	Nome       string                 `json:"nome"       binding:"required,min=2"`
+	Descricao  string                 `json:"descricao"`
+	Valor      float64                `json:"valor"      binding:"required,gte=0"`
+	Moeda      string                 `json:"moeda"`
+	CicloDias  int                    `json:"ciclo_dias" binding:"required,gte=1"`
+	Beneficios PlanoBeneficiosRequest `json:"beneficios"`
+	Ativo      *bool                  `json:"ativo"      binding:"required"`
+}
+
 type CreateChipRequest struct {
 	ICCID     string   `json:"iccid"     binding:"required,min=10"`
 	MSISDN    string   `json:"msisdn"`

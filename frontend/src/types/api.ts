@@ -136,6 +136,7 @@ export interface ChipRede {
 export interface Chip {
   id: string;
   iccid: string;
+  lote_id?: string;
   msisdn?: string;
   status: ChipStatus;
   cliente_id?: string;
@@ -195,11 +196,44 @@ export interface CreatePlanoRequest {
   beneficios: PlanoBeneficios;
 }
 
+export interface UpdatePlanoRequest {
+  nome: string;
+  descricao: string;
+  valor: number;
+  moeda: string;
+  ciclo_dias: number;
+  beneficios: PlanoBeneficios;
+  ativo: boolean;
+}
+
 export interface CreateChipRequest {
   iccid: string;
   msisdn?: string;
   operadora?: string;
   imsi?: string;
+  tags: string[];
+}
+
+export type LoteStatus = "imported" | "active" | "closed";
+
+export interface LoteChip {
+  id: string;
+  nome: string;
+  descricao: string;
+  quantidade: number;
+  criado_em: string;
+  status: LoteStatus;
+  audit: AuditInfo;
+}
+
+export interface CreateLoteRequest {
+  nome: string;
+  descricao: string;
+  quantidade: number;
+  iccid_prefix: string;
+  msisdn_prefix?: string;
+  imsi_prefix?: string;
+  operadora?: string;
   tags: string[];
 }
 

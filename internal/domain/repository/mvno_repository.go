@@ -22,6 +22,7 @@ type MVNORepository interface {
 	CreatePlano(ctx context.Context, plano *model.Plano) error
 	FindPlanoByID(ctx context.Context, id primitive.ObjectID) (*model.Plano, error)
 	ListPlanos(ctx context.Context) ([]model.Plano, error)
+	UpdatePlano(ctx context.Context, plano *model.Plano) error
 	CreateChip(ctx context.Context, chip *model.Chip) error
 	FindChipByICCID(ctx context.Context, iccid string) (*model.Chip, error)
 	FindChipsByICCIDs(ctx context.Context, iccids []string) ([]model.Chip, error)
@@ -172,7 +173,7 @@ func (r *mvnoRepository) CreatePlano(ctx context.Context, plano *model.Plano) er
 
 func (r *mvnoRepository) FindPlanoByID(ctx context.Context, id primitive.ObjectID) (*model.Plano, error) {
 	var plano model.Plano
-	err := r.planos.FindOne(ctx, bson.M{"_id": id, "ativo": true}).Decode(&plano)
+	err := r.planos.FindOne(ctx, bson.M{"_id": id}).Decode(&plano)
 	return &plano, err
 }
 
@@ -186,6 +187,27 @@ func (r *mvnoRepository) ListPlanos(ctx context.Context) ([]model.Plano, error) 
 	var planos []model.Plano
 	err = cursor.All(ctx, &planos)
 	return planos, err
+}
+
+func (r *mvnoRepository) UpdatePlano(ctx context.Context, plano *model.Plano) error {
+	plano.Audit.UpdatedAt = time.Now()
+	result, err := r.planos.UpdateOne(ctx, bson.M{"_id": plano.ID}, bson.M{"$set": bson.M{
+		"nome":             plano.Nome,
+		"descricao":        plano.Descricao,
+		"valor":            plano.Valor,
+		"moeda":            plano.Moeda,
+		"ciclo_dias":       plano.CicloDias,
+		"beneficios":       plano.Beneficios,
+		"ativo":            plano.Ativo,
+		"audit.updated_at": plano.Audit.UpdatedAt,
+	}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
 }
 
 func (r *mvnoRepository) CreateChip(ctx context.Context, chip *model.Chip) error {

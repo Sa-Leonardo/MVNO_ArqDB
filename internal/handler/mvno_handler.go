@@ -88,6 +88,21 @@ func (h *MVNOHandler) ListPlanos(c *gin.Context) {
 	response.OK(c, planos)
 }
 
+func (h *MVNOHandler) UpdatePlano(c *gin.Context) {
+	var req dto.UpdatePlanoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	plano, err := h.mvnoService.UpdatePlano(c.Request.Context(), c.Param("id"), req, actorFromContext(c))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.OK(c, plano)
+}
+
 func (h *MVNOHandler) CreateChip(c *gin.Context) {
 	var req dto.CreateChipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

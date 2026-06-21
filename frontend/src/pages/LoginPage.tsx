@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Loader2, RadioTower } from "lucide-react";
+import { Eye, EyeOff, Loader2, RadioTower } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -13,6 +13,7 @@ export function LoginPage() {
   const location = useLocation();
   const [email, setEmail] = useState("admin@mvno.local");
   const [password, setPassword] = useState("admin12345");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
@@ -60,14 +61,26 @@ export function LoginPage() {
           </label>
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-slate-700">Senha</span>
-            <Input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              minLength={6}
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <Input
+                className="pr-11"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                minLength={6}
+                autoComplete="current-password"
+              />
+              <button
+                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-muted hover:text-ink"
+                type="button"
+                title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </label>
           <Button className="w-full" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
