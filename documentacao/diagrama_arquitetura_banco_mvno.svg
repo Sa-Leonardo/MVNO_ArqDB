@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .title { font: 700 34px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 17px Arial, sans-serif; fill: #64748b; }
+      .card-title { font: 700 22px Arial, sans-serif; fill: #ffffff; }
+      .field { font: 400 15px Arial, sans-serif; fill: #334155; }
+      .key { font: 700 15px Arial, sans-serif; fill: #0f172a; }
+      .tag { font: 700 13px Arial, sans-serif; fill: #475569; }
+      .legend { font: 400 14px Arial, sans-serif; fill: #475569; }
+      .relation { fill: none; stroke: #64748b; stroke-width: 2.5; marker-end: url(#arrow); }
+      .relation-dashed { fill: none; stroke: #64748b; stroke-width: 2.5; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1050" fill="#f8fafc"/>
+  <path d="M0 122 H1600" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="70" y="62" class="title">Arquitetura do Banco de Dados MVNO</text>
+  <text x="70" y="94" class="subtitle">Modelo documental MongoDB: coleções, referências e dados incorporados</text>
+  <rect x="1275" y="47" width="250" height="48" rx="6" fill="#ffffff" stroke="#dbe3ec"/>
+  <circle cx="1300" cy="71" r="6" fill="#64748b"/>
+  <text x="1316" y="76" class="legend">Database: mvno_db</text>
+
+  <!-- Relationships behind cards -->
+  <path class="relation" d="M350 263 C430 263 450 330 535 350"/>
+  <path class="relation" d="M350 535 C440 535 455 500 535 500"/>
+  <path class="relation" d="M895 418 C965 418 980 445 1045 445"/>
+  <path class="relation" d="M1195 315 L1195 370"/>
+  <path class="relation" d="M895 565 C970 585 975 775 1045 790"/>
+  <path class="relation-dashed" d="M350 850 C430 850 455 865 535 865"/>
+  <path class="relation-dashed" d="M715 660 L715 760"/>
+
+  <!-- Relationship labels -->
+  <g><rect x="412" y="266" width="92" height="28" rx="14" fill="#ffffff" stroke="#cbd5e1"/><text x="458" y="285" text-anchor="middle" class="tag">1 : N</text></g>
+  <g><rect x="412" y="505" width="92" height="28" rx="14" fill="#ffffff" stroke="#cbd5e1"/><text x="458" y="524" text-anchor="middle" class="tag">1 : N</text></g>
+  <g><rect x="930" y="410" width="92" height="28" rx="14" fill="#ffffff" stroke="#cbd5e1"/><text x="976" y="429" text-anchor="middle" class="tag">1 : N</text></g>
+  <g><rect x="1155" y="346" width="80" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1"/><text x="1195" y="361" text-anchor="middle" class="tag">1 : N</text></g>
+  <g><rect x="947" y="673" width="92" height="28" rx="14" fill="#ffffff" stroke="#cbd5e1"/><text x="993" y="692" text-anchor="middle" class="tag">1 : N</text></g>
+  <g><rect x="410" y="824" width="104" height="28" rx="14" fill="#ffffff" stroke="#cbd5e1"/><text x="462" y="843" text-anchor="middle" class="tag">audita</text></g>
+  <g><rect x="663" y="701" width="104" height="28" rx="14" fill="#ffffff" stroke="#cbd5e1"/><text x="715" y="720" text-anchor="middle" class="tag">audita</text></g>
+
+  <!-- lotes -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="170" width="280" height="205" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M78 170 H342 A8 8 0 0 1 350 178 V220 H70 V178 A8 8 0 0 1 78 170" fill="#7c3aed"/>
+    <text x="92" y="203" class="card-title">lotes</text>
+    <text x="92" y="250" class="key">_id</text><text x="165" y="250" class="field">ObjectId</text>
+    <text x="92" y="279" class="field">nome, descricao</text>
+    <text x="92" y="308" class="field">quantidade, status</text>
+    <text x="92" y="337" class="field">criado_em, audit</text>
+  </g>
+
+  <!-- clientes -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="410" width="280" height="260" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M78 410 H342 A8 8 0 0 1 350 418 V460 H70 V418 A8 8 0 0 1 78 410" fill="#0891b2"/>
+    <text x="92" y="443" class="card-title">clientes</text>
+    <text x="92" y="490" class="key">_id</text><text x="165" y="490" class="field">ObjectId</text>
+    <text x="92" y="519" class="key">documento</text><text x="195" y="519" class="field">único</text>
+    <text x="92" y="548" class="field">nome, tags</text>
+    <text x="92" y="577" class="field">contato { email, telefone }</text>
+    <text x="92" y="606" class="field">endereco { cidade, UF, CEP }</text>
+    <text x="92" y="635" class="field">audit { created_at, updated_at }</text>
+  </g>
+
+  <!-- users -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="735" width="280" height="230" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M78 735 H342 A8 8 0 0 1 350 743 V785 H70 V743 A8 8 0 0 1 78 735" fill="#475569"/>
+    <text x="92" y="768" class="card-title">users</text>
+    <text x="92" y="815" class="key">_id</text><text x="165" y="815" class="field">ObjectId</text>
+    <text x="92" y="844" class="field">identity { name, email }</text>
+    <text x="92" y="873" class="field">credentials { password_hash }</text>
+    <text x="92" y="902" class="field">access { role, permissions }</text>
+    <text x="92" y="931" class="field">status, audit, metadata</text>
+  </g>
+
+  <!-- chips central -->
+  <g filter="url(#shadow)">
+    <rect x="535" y="250" width="360" height="410" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+    <path d="M543 250 H887 A8 8 0 0 1 895 258 V305 H535 V258 A8 8 0 0 1 543 250" fill="#0f766e"/>
+    <text x="560" y="286" class="card-title">chips</text>
+    <rect x="783" y="266" width="88" height="24" rx="12" fill="#ccfbf1"/>
+    <text x="827" y="283" text-anchor="middle" class="tag" fill="#115e59">CENTRAL</text>
+    <text x="560" y="340" class="key">_id</text><text x="665" y="340" class="field">ObjectId</text>
+    <text x="560" y="371" class="key">iccid</text><text x="665" y="371" class="field">string · único</text>
+    <text x="560" y="402" class="field">msisdn, status, tags</text>
+    <text x="560" y="433" class="key">cliente_id</text><text x="665" y="433" class="field">ObjectId · referência</text>
+    <text x="560" y="464" class="key">plano_id</text><text x="665" y="464" class="field">ObjectId · referência</text>
+    <text x="560" y="495" class="key">lote_id</text><text x="665" y="495" class="field">ObjectId · referência</text>
+    <text x="560" y="526" class="field">rede { operadora, imsi }</text>
+    <rect x="555" y="550" width="320" height="69" rx="6" fill="#ecfdf5" stroke="#a7f3d0"/>
+    <text x="570" y="576" class="key">assinatura_atual</text>
+    <text x="570" y="603" class="field">documento incorporado · leitura rápida</text>
+    <text x="560" y="643" class="field">audit { created_at, updated_at }</text>
+  </g>
+
+  <!-- planos -->
+  <g filter="url(#shadow)">
+    <rect x="1045" y="145" width="300" height="200" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M1053 145 H1337 A8 8 0 0 1 1345 153 V195 H1045 V153 A8 8 0 0 1 1053 145" fill="#2563eb"/>
+    <text x="1068" y="178" class="card-title">planos</text>
+    <text x="1068" y="225" class="key">_id</text><text x="1150" y="225" class="field">ObjectId</text>
+    <text x="1068" y="254" class="field">nome único, descricao</text>
+    <text x="1068" y="283" class="field">valor, moeda, ciclo_dias</text>
+    <text x="1068" y="312" class="field">beneficios { dados, voz, apps }</text>
+  </g>
+
+  <!-- assinaturas -->
+  <g filter="url(#shadow)">
+    <rect x="1045" y="370" width="300" height="270" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M1053 370 H1337 A8 8 0 0 1 1345 378 V420 H1045 V378 A8 8 0 0 1 1053 370" fill="#d97706"/>
+    <text x="1068" y="403" class="card-title">assinaturas</text>
+    <text x="1068" y="450" class="key">_id</text><text x="1150" y="450" class="field">ObjectId</text>
+    <text x="1068" y="479" class="key">iccid</text><text x="1150" y="479" class="field">referência lógica</text>
+    <text x="1068" y="508" class="field">cliente_id, status</text>
+    <rect x="1065" y="527" width="260" height="62" rx="6" fill="#fffbeb" stroke="#fde68a"/>
+    <text x="1080" y="552" class="key">plano</text><text x="1140" y="552" class="field">snapshot incorporado</text>
+    <text x="1080" y="577" class="field">preserva preço e benefícios</text>
+    <text x="1068" y="618" class="field">inicio_em, fim_em, audit</text>
+  </g>
+
+  <!-- recargas -->
+  <g filter="url(#shadow)">
+    <rect x="1045" y="715" width="300" height="210" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M1053 715 H1337 A8 8 0 0 1 1345 723 V765 H1045 V723 A8 8 0 0 1 1053 715" fill="#dc2626"/>
+    <text x="1068" y="748" class="card-title">recargas</text>
+    <text x="1068" y="795" class="key">_id</text><text x="1150" y="795" class="field">ObjectId</text>
+    <text x="1068" y="824" class="key">iccid</text><text x="1150" y="824" class="field">referência lógica</text>
+    <text x="1068" y="853" class="field">valor, moeda, status</text>
+    <text x="1068" y="882" class="field">solicitada_em, processada_em</text>
+  </g>
+
+  <!-- audit logs -->
+  <g filter="url(#shadow)">
+    <rect x="535" y="760" width="360" height="205" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+    <path d="M543 760 H887 A8 8 0 0 1 895 768 V810 H535 V768 A8 8 0 0 1 543 760" fill="#9333ea"/>
+    <text x="560" y="793" class="card-title">audit_logs</text>
+    <text x="560" y="840" class="key">_id</text><text x="665" y="840" class="field">ObjectId</text>
+    <text x="560" y="869" class="field">entity, entity_id, action</text>
+    <text x="560" y="898" class="field">actor { user_id, email, role }</text>
+    <text x="560" y="927" class="field">occurred_at, snapshot</text>
+  </g>
+
+  <!-- Legend -->
+  <rect x="70" y="995" width="1275" height="38" rx="6" fill="#ffffff" stroke="#dbe3ec"/>
+  <line x1="95" y1="1014" x2="145" y2="1014" class="relation"/>
+  <text x="160" y="1019" class="legend">referência entre coleções</text>
+  <line x1="385" y1="1014" x2="435" y2="1014" class="relation-dashed"/>
+  <text x="450" y="1019" class="legend">registro de auditoria</text>
+  <rect x="688" y="1003" width="22" height="22" rx="4" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="722" y="1019" class="legend">documento incorporado / snapshot</text>
+  <text x="1315" y="1019" text-anchor="end" class="legend">MongoDB · modelo atual do projeto</text>
+</svg>

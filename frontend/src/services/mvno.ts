@@ -5,11 +5,13 @@ import type {
   Chip,
   Cliente,
   CreateChipRequest,
+  CreateLoteRequest,
   CreateClienteRequest,
   CreatePlanoRequest,
   CreateRecargaRequest,
   CreateUserRequest,
   Plano,
+  LoteChip,
   Recarga,
   UpdateClienteRequest,
   UpdatePlanoRequest,
@@ -79,6 +81,14 @@ export const mvnoService = {
     return unwrap(api.post("/api/v1/chips", payload));
   },
 
+  createLote(payload: CreateLoteRequest): Promise<LoteChip> {
+    return unwrap(api.post("/api/v1/chips/lotes", payload));
+  },
+
+  listLotes(): Promise<LoteChip[]> {
+    return unwrap(api.get("/api/v1/chips/lotes"));
+  },
+
   activateChip(
     iccid: string,
     payload: AtivarChipRequest
@@ -132,6 +142,18 @@ export const mvnoService = {
   deactivateUser(id: string): Promise<void> {
     return unwrap(
       api.patch(`/api/v1/users/${id}/deactivate`)
+    );
+  },
+
+  reactivateUser(id: string): Promise<void> {
+    return unwrap(
+      api.patch(`/api/v1/users/${id}/reactivate`)
+    );
+  },
+
+  changeUserPassword(id: string, password: string): Promise<void> {
+    return unwrap(
+      api.patch(`/api/v1/users/${id}/password`, { password })
     );
   }
 };

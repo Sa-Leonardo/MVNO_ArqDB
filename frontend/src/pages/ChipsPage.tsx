@@ -1,7 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Plus, Search, Zap } from "lucide-react";
+import { Boxes, Eye, Plus, Search, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 import { Badge, ChipStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { mvnoService } from "@/services/mvno";
 import { useRbac } from "@/hooks/useRbac";
 import { compactICCID, onlyDigits } from "@/utils/formatters";
-import type { ChipStatus, CreateChipRequest } from "@/types/api";
+import type { ChipStatus, CreateChipRequest, CreateLoteRequest } from "@/types/api";
 import { ActivateChipModal } from "@/pages/ChipDetailsPage";
 
 const statuses: Array<ChipStatus | ""> = ["", "available", "active", "reserved", "suspended", "canceled"];
@@ -24,6 +24,7 @@ export function ChipsPage() {
   const [status, setStatus] = useState<ChipStatus | "">("");
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
   const [activateICCID, setActivateICCID] = useState<string | null>(null);
   const chipsQuery = useQuery({ queryKey: ["chips", status], queryFn: () => mvnoService.listChips(status) });
 
@@ -45,6 +46,19 @@ export function ChipsPage() {
     onError: (error) => toast.error(error.message)
   });
 
+  const createBatchMutation = useMutation({
+    mutationFn: mvnoService.createLote,
+    onSuccess: async (lote) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["chips"] }),
+        queryClient.invalidateQueries({ queryKey: ["chip-lotes"] })
+      ]);
+      toast.success(`${lote.quantidade} chips cadastrados no lote ${lote.nome}.`);
+      setIsBatchOpen(false);
+    },
+    onError: (error) => toast.error(error.message)
+  });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -53,10 +67,16 @@ export function ChipsPage() {
           <p className="text-sm text-slate-500">Estoque, ativações, assinaturas e recargas</p>
         </div>
         {canOperate ? (
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Novo Chip
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => setIsBatchOpen(true)}>
+              <Boxes className="h-4 w-4" />
+              Novo lote
+            </Button>
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Novo chip
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -125,8 +145,76 @@ export function ChipsPage() {
       </Card>
 
       <CreateChipModal isOpen={isCreateOpen} isSaving={createMutation.isPending} onClose={() => setIsCreateOpen(false)} onSubmit={(payload) => createMutation.mutate(payload)} />
+      <CreateBatchModal isOpen={isBatchOpen} isSaving={createBatchMutation.isPending} onClose={() => setIsBatchOpen(false)} onSubmit={(payload) => createBatchMutation.mutate(payload)} />
       <ActivateChipModal iccid={activateICCID} isOpen={Boolean(activateICCID)} onClose={() => setActivateICCID(null)} />
     </div>
+  );
+}
+
+function CreateBatchModal({ isOpen, isSaving, onClose, onSubmit }: { isOpen: boolean; isSaving: boolean; onClose: () => void; onSubmit: (payload: CreateLoteRequest) => void }) {
+  const [form, setForm] = useState<CreateLoteRequest>({
+    nome: "",
+    descricao: "",
+    quantidade: 10,
+    iccid_prefix: "",
+    msisdn_prefix: "",
+    imsi_prefix: "",
+    operadora: "MVNO",
+    tags: []
+  });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSubmit({
+      ...form,
+      quantidade: Number(form.quantidade),
+      iccid_prefix: onlyDigits(form.iccid_prefix),
+      msisdn_prefix: onlyDigits(form.msisdn_prefix ?? ""),
+      imsi_prefix: onlyDigits(form.imsi_prefix ?? "")
+    });
+  }
+
+  return (
+    <Modal title="Cadastrar chips em lote" description="Os números serão gerados sequencialmente a partir dos prefixos informados." isOpen={isOpen} onClose={onClose}>
+      <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium">Nome do lote</span>
+          <Input required minLength={2} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium">Quantidade</span>
+          <Input required type="number" min={1} max={1000} value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: Number(e.target.value) })} />
+        </label>
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className="text-sm font-medium">Descrição</span>
+          <Input value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium">Prefixo ICCID</span>
+          <Input required minLength={6} inputMode="numeric" placeholder="89550001" value={form.iccid_prefix} onChange={(e) => setForm({ ...form, iccid_prefix: e.target.value })} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium">Prefixo MSISDN</span>
+          <Input inputMode="numeric" placeholder="55859" value={form.msisdn_prefix} onChange={(e) => setForm({ ...form, msisdn_prefix: e.target.value })} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium">Prefixo IMSI</span>
+          <Input inputMode="numeric" placeholder="72400" value={form.imsi_prefix} onChange={(e) => setForm({ ...form, imsi_prefix: e.target.value })} />
+        </label>
+        <label className="space-y-1.5">
+          <span className="text-sm font-medium">Operadora</span>
+          <Input value={form.operadora} onChange={(e) => setForm({ ...form, operadora: e.target.value })} />
+        </label>
+        <label className="space-y-1.5 sm:col-span-2">
+          <span className="text-sm font-medium">Tags</span>
+          <Input placeholder="lote-01, eSIM" onChange={(e) => setForm({ ...form, tags: e.target.value.split(",").map((tag) => tag.trim()).filter(Boolean) })} />
+        </label>
+        <div className="flex justify-end gap-2 sm:col-span-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button disabled={isSaving}>{isSaving ? "Cadastrando..." : `Cadastrar ${form.quantidade || 0} chips`}</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

@@ -107,6 +107,10 @@ func main() {
 			users.PUT("/:id", authHandler.UpdateUser)
 
 			users.PATCH("/:id/deactivate", authHandler.DeactivateUser)
+
+			users.PATCH("/:id/reactivate", authHandler.ReactivateUser)
+
+			users.PATCH("/:id/password", authHandler.ChangePassword)
 		}
 
 		clientes := api.Group("/clientes")

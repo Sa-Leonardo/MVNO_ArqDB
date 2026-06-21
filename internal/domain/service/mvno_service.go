@@ -112,8 +112,10 @@ func (s *mvnoService) CreateLoteChips(ctx context.Context, req dto.CreateLoteReq
 	}
 
 	chips := make([]model.Chip, 0, req.Quantidade)
+	iccids := make([]string, 0, req.Quantidade)
 	for i := 1; i <= req.Quantidade; i++ {
 		iccid := fmt.Sprintf("%s%06d", iccidPrefix, i)
+		iccids = append(iccids, iccid)
 		chip := model.Chip{
 			ICCID:  iccid,
 			LoteID: &lote.ID,
@@ -125,6 +127,13 @@ func (s *mvnoService) CreateLoteChips(ctx context.Context, req dto.CreateLoteReq
 			Tags:   append([]string{"lote", lote.Nome}, req.Tags...),
 		}
 		chips = append(chips, chip)
+	}
+	existingChips, err := s.repo.FindChipsByICCIDs(ctx, iccids)
+	if err != nil {
+		return nil, err
+	}
+	if len(existingChips) > 0 {
+		return nil, fmt.Errorf("o ICCID %s ja esta cadastrado", existingChips[0].ICCID)
 	}
 
 	if err := s.repo.CreateLote(ctx, lote); err != nil {
