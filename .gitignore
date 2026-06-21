@@ -49,6 +49,7 @@ vendor/
 # Caches / dependencias locais
 # =========================
 .gocache/
+.cache/
 node_modules/
 frontend/node_modules/
 
